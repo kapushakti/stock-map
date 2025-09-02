@@ -92,12 +92,30 @@
     const app = initializeApp(FIREBASE_CONFIG);
     const auth = getAuth(app);
     const db = getFirestore(app);
-    try { await enableIndexedDbPersistence(db); } catch(e) { console.warn('Persistence:', e.message); }
+    
+    // IndexedDB Persistence
+    try { 
+      await enableIndexedDbPersistence(db); 
+      console.log('Firestore persistence enabled.');
+    } catch(e) { 
+      if (e.code === 'failed-precondition') {
+        // Multiple tabs open, persistence can only be enabled in one tab.
+        console.warn('Persistence failed: Multiple tabs open. IndexedDB persistence can only be enabled in one tab at a time.');
+      } else if (e.code === 'unimplemented') {
+        // The current browser does not support IndexedDB.
+        console.warn('Persistence failed: Browser does not support IndexedDB for offline persistence.');
+      } else {
+        console.error('Persistence failed:', e.message); 
+      }
+    }
 
     // DOM & SETUP
     const $status = document.getElementById('status');
     const $content = document.getElementById('content');
-    const dateKey = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' })).toISOString().slice(0, 10);
+    // Asia/Kolkata સમય મુજબ આજની તારીખ મેળવો
+    const today = new Date();
+    const dateKey = today.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }).replace(/\//g, '-'); // YYYY-MM-DD
+    
     document.getElementById('dateLabel').textContent = `તારીખ: ${dateKey.split('-').reverse().join('-')}`;
     const docRef = doc(db, 'fridge_crates', dateKey);
 
@@ -112,7 +130,7 @@
             let crateIndex = 0;
             for(let row=1; row<=4; row++){
                 for(let col=1; col<=4; col++){
-                    if((row === 3 || row === 4) && col === 1) continue;
+                    if((row === 3 || row === 4) && col === 1) continue; // Skip the fridge name box area
                     if(crateIndex >= fridgeData.count) break;
                     const crateBox = createCrateBox(fridgeId, crateIndex, productOptions);
                     crateBox.style.gridArea = `${row} / ${col} / span 1 / span 1`;
@@ -122,7 +140,7 @@
             const nameBox = document.createElement('div'); nameBox.className = 'fridge-name-box';
             nameBox.textContent = fridgeData.name; grid.appendChild(nameBox);
             section.appendChild(grid);
-        } else {
+        } else { // vertical layout
             const title = document.createElement('h2'); title.className = 'vertical-fridge-title';
             title.textContent = fridgeData.name; section.appendChild(title);
             const grid = document.createElement('div'); grid.className = 'vertical-grid-container';
@@ -132,21 +150,34 @@
         $content.appendChild(section);
       }
     }
+
     function createCrateBox(fridgeId, index, productOptions) {
         const crateBox = document.createElement('div'); crateBox.className = 'crate-box';
-        crateBox.innerHTML = `<select data-fridge="${fridgeId}" data-index="${index}" data-type="product">${productOptions}</select><div class="half-section"><input type="checkbox" id="half_${fridgeId}_${index}" data-fridge="${fridgeId}" data-index="${index}" data-type="isHalf"><label for="half_${fridgeId}_${index}">અળધુ</label></div>`;
+        crateBox.innerHTML = `
+            <select data-fridge="${fridgeId}" data-index="${index}" data-type="product">${productOptions}</select>
+            <div class="half-section">
+                <input type="checkbox" id="half_${fridgeId}_${index}" data-fridge="${fridgeId}" data-index="${index}" data-type="isHalf">
+                <label for="half_${fridgeId}_${index}">અળધુ</label>
+            </div>
+        `;
         return crateBox;
     }
     
     // DATA HANDLING & FIREBASE
     let state = {};
-    const getInitialState = () => { const i = {}; for (const f in FRIDGES) { i[f] = Array(FRIDGES[f].count).fill({ product: 'ખાલી', isHalf: false }); } return i; };
-    let applyingRemote = false;
+    const getInitialState = () => { 
+      const i = {}; 
+      for (const f in FRIDGES) { 
+        i[f] = Array(FRIDGES[f].count).fill({ product: 'ખાલી', isHalf: false }); 
+      } 
+      return i; 
+    };
+    let applyingRemote = false; // Flag to prevent triggering change listener when applying remote data
 
     function applyStateToUI(sourceState) {
       applyingRemote = true;
       for (const [fridgeId, data] of Object.entries(sourceState)) {
-        if (!data) continue;
+        if (!data) continue; // Handle cases where data for a fridge might be null/undefined
         data.forEach((crate, index) => {
           const productSelect = document.querySelector(`select[data-fridge="${fridgeId}"][data-index="${index}"]`);
           const isHalfCheck = document.querySelector(`input[data-fridge="${fridgeId}"][data-index="${index}"]`);
@@ -157,64 +188,116 @@
       applyingRemote = false;
     }
     
-    function setStatus(msg){ $status.textContent = msg; clearTimeout(setStatus._t); setStatus._t = setTimeout(()=>{$status.textContent=''}, 2500); }
+    // Status message helper
+    function setStatus(msg){ 
+      $status.textContent = msg; 
+      // Clear any previous timeout
+      if (setStatus._t) clearTimeout(setStatus._t); 
+      // Set new timeout to clear message after 2.5 seconds
+      setStatus._t = setTimeout(() => { $status.textContent = ''; }, 2500); 
+    }
     
+    // Save current state to Firestore
     async function saveState() {
       setStatus('સેવ થઈ રહ્યું છે...');
+      // ડીબગિંગ: સેવ કરતા પહેલા વર્તમાન સ્ટેટ લોગ કરો
+      console.log("Attempting to save state:", JSON.stringify(state)); 
       try {
         await setDoc(docRef, { ...state, updatedAt: new Date() });
         setStatus('સેવ થઈ ગયું ✅');
+        // ડીબગિંગ: સફળતાનો સંદેશ લોગ કરો
+        console.log("State saved successfully!");
       } catch (error) {
         console.error("Save failed:", error);
-        setStatus('સેવ નિષ્ફળ ❌');
+        setStatus(`સેવ નિષ્ફળ ❌: ${error.message}`); // ભૂલ સંદેશ વધુ વિગતવાર બનાવો
       }
     }
 
+    // Event listener for UI changes
     $content.addEventListener('change', (e) => {
-      if (applyingRemote || !(e.target.matches('select') || e.target.matches('input[type="checkbox"]'))) return;
+      // If we're applying data from Firestore, ignore local change events
+      if (applyingRemote) return; 
+
+      // Check if the changed element is a select or checkbox
+      if (!(e.target.matches('select') || e.target.matches('input[type="checkbox"]'))) return;
       
       const { fridge, index, type } = e.target.dataset;
       const value = (type === 'isHalf') ? e.target.checked : e.target.value;
       
-      // અહીં, આપણે સીધા 'state' ઓબ્જેક્ટને અપડેટ કરીએ છીએ.
+      // Update the local state object
+      // ખાતરી કરો કે fridge અને index માટે એરે અસ્તિત્વમાં છે
+      if (!state[fridge]) state[fridge] = [];
+      if (!state[fridge][index]) state[fridge][index] = { product: 'ખાલી', isHalf: false }; // ડિફોલ્ટ વેલ્યુ સેટ કરો
+
       state[fridge][index][type] = value;
       setStatus('ફેરફાર સેવ કરવા SAVE દબાવો');
+      console.log(`UI Change - Fridge: ${fridge}, Index: ${index}, Type: ${type}, Value: ${value}`);
     });
 
+    // Save button click handler
     document.getElementById('saveBtn').addEventListener('click', saveState);
 
+    // Reset button click handler
     document.getElementById('resetBtn').addEventListener('click', async () => {
       if (!confirm('આજે માટે આખું લેઆઉટ સાફ કરવા RESET કરશો?')) return;
-      state = getInitialState();
+      
+      state = getInitialState(); // Reset local state to initial
       setStatus('રીસેટ થઈ રહ્યું છે...');
-      await setDoc(docRef, { ...state, date: dateKey, createdAt: new Date() });
-      setStatus('રીસેટ થઈ ગયું ✅');
+      try {
+        await setDoc(docRef, { ...state, date: dateKey, createdAt: new Date() });
+        setStatus('રીસેટ થઈ ગયું ✅');
+        console.log("State reset successfully!");
+      } catch (error) {
+        console.error("Reset failed:", error);
+        setStatus(`રીસેટ નિષ્ફળ ❌: ${error.message}`);
+      }
     });
     
-    // નવી અને સુધારેલી onAuthStateChanged() ફંક્શન
+    // Firebase Auth State Listener
     onAuthStateChanged(auth, async (user) => {
       if (!user) {
-        try { await signInAnonymously(auth); } catch(e) { console.error("Sign-in failed", e); setStatus('ઓથેન્ટિકેશન નિષ્ફળ ❌'); }
-        return;
+        // જો કોઈ યુઝર લોગ ઇન ન હોય, તો અનામી રીતે લોગ ઇન કરવાનો પ્રયાસ કરો.
+        try { 
+          await signInAnonymously(auth); 
+          console.log("Signed in anonymously.");
+        } catch(e) { 
+          console.error("Anonymous sign-in failed", e); 
+          setStatus(`ઓથેન્ટિકેશન નિષ્ફળ ❌: ${e.message}`); 
+        }
+        return; // ઓથેન્ટિકેશન ન થાય ત્યાં સુધી આગળ વધશો નહીં
       }
       
+      // યુઝર લોગ ઇન થયા પછી UI બનાવો
       buildUI();
       setStatus('લોડ થઈ રહ્યું છે...');
 
+      // રીયલટાઇમ અપડેટ્સ માટે onSnapshot સેટ કરો
       onSnapshot(docRef, (docSnap) => {
         if (!docSnap.exists()) {
+          // જો આજે માટે કોઈ ડોક્યુમેન્ટ ન હોય, તો ઇનિશિયલ સ્ટેટ સેટ કરો અને ફાયરસ્ટોરમાં બનાવો.
           state = getInitialState();
-          setDoc(docRef, { ...state, date: dateKey, createdAt: new Date() });
-          setStatus('નવો દિવસ ✅');
+          setDoc(docRef, { ...state, date: dateKey, createdAt: new Date() })
+            .then(() => {
+              setStatus('નવો દિવસ ✅');
+              console.log("New day document created in Firestore.");
+            })
+            .catch(error => {
+              console.error("Error creating new day document:", error);
+              setStatus(`નવો દિવસ બનાવવામાં નિષ્ફળ ❌: ${error.message}`);
+            });
           return;
         }
         
+        // ડોક્યુમેન્ટ અસ્તિત્વમાં છે, સ્ટેટ અપડેટ કરો અને UI માં લાગુ કરો
+        // નોંધ: getInitialState() નો ઉપયોગ કરીને ખાતરી કરો કે જો કોઈ નવા ફ્રિજ/ક્રેઇટ્સ ઉમેરવામાં આવે તો UI તૂટે નહીં
         state = { ...getInitialState(), ...docSnap.data() };
         applyStateToUI(state);
         setStatus('રીયલટાઇમ જોડાયેલ ✅');
+        console.log("Firestore data received and applied.", state);
       }, (error) => {
+        // onSnapshot માં ભૂલ આવે ત્યારે હેન્ડલ કરો
         console.error("Snapshot error:", error);
-        setStatus('રીયલટાઇમ કનેક્શન તૂટ્યું ❌');
+        setStatus(`રીયલટાઇમ કનેક્શન તૂટ્યું ❌: ${error.message}`);
       });
     });
   </script>
