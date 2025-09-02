@@ -70,15 +70,25 @@
 
   <script type="module">
     // CONFIG
-    const FIREBASE_CONFIG = { apiKey: "AIzaSyCL1bckC1F7DyFjv5aq9WU0aUBYMJ4MX8", authDomain: "amulstock-11.firebaseapp.com", projectId: "amulstock-11", storageBucket: "amulstock-11.appspot.com", messagingSenderId: "809002917513", appId: "1:809002917513:web:1d2296a8ca9f5142fe3058", measurementId: "G-WTCML4CVV5" };
+    const FIREBASE_CONFIG = { 
+      apiKey: "AIzaSyCL1bckC1F7DyFjv5aq9WU0aUBYMJ4MX8", 
+      authDomain: "amulstock-11.firebaseapp.com", 
+      databaseURL: "https://amulstock-11-default-rtdb.firebaseio.com",
+      projectId: "amulstock-11", 
+      storageBucket: "amulstock-11.appspot.com", 
+      messagingSenderId: "809002917513", 
+      appId: "1:809002917513:web:1d2296a8ca9f5142fe3058", 
+      measurementId: "G-WTCML4CVV5" 
+    };
     
     const PRODUCTS = [ "ખાલી", "તાજા 150", "ગોલ્ડ 500", "તાજા 500", "T સ્પે ગીર", "A તાજા 500", "T સ્પે અમુલ", "છાસ ગીર", "છાસ 680", "છાસ 300", "FF 150", "દહીં 850", "દહીં 1 KG", "દહીં 5 KG", "ગોલ્ડ 6 લી" ];
     const FRIDGES = { white_fridge: { name: "વ્હાઇટ ફ્રિજ", count: 14, layout: 'custom' }, blue_fridge: { name: "બ્લુ ફ્રિજ", count: 14, layout: 'custom' }, amul_fridge: { name: "અમુલ ફ્રિજ", count: 14, layout: 'custom' }, fourth_fridge: { name: "ચોથું ફ્રિજ", count: 4, layout: 'vertical' } };
 
     // FIREBASE SETUP
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-app.js";
-    import { getAuth, onAuthStateChanged, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-auth.js";
-    import { getFirestore, doc, setDoc, updateDoc, onSnapshot, enableIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js";
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-app.js"; // SDK વર્ઝન બદલ્યું
+    import { getAuth, onAuthStateChanged, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-auth.js"; // SDK વર્ઝન બદલ્યું
+    import { getFirestore, doc, setDoc, updateDoc, onSnapshot, enableIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-firestore.js"; // SDK વર્ઝન બદલ્યું
+    
     const app = initializeApp(FIREBASE_CONFIG);
     const auth = getAuth(app);
     const db = getFirestore(app);
