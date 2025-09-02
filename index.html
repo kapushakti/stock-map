@@ -1,0 +1,211 @@
+<meta name='viewport' content='width=device-width, initial-scale=1'/><!DOCTYPE html>
+<html lang="gu">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Fridge Crate Map</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Gujarati:wght@500;700&display=swap" rel="stylesheet">
+  <style>
+    :root{
+      --bg:#f8fafc; --card:#ffffff; --muted:#475569; --accent:#22c55e;
+      --danger:#ef4444; --text:#1e293b; --line:#e2e8f0;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0; font-family:"Noto Sans Gujarati", system-ui, sans-serif;
+      background:var(--bg); color:var(--text); -webkit-tap-highlight-color: transparent;
+    }
+    .wrap{max-width:980px; margin:0 auto; padding:8px;}
+    .card{background:var(--card); border:1px solid var(--line); border-radius:16px; box-shadow:0 4px 15px rgba(0,0,0,.07);}
+    .header{padding:12px; border-bottom:1px solid var(--line); display:flex; align-items:center; justify-content:space-between; gap:12px;}
+    h1{font-size:18px; margin:0; font-weight:700;}
+    .controls{display:flex; gap:8px; align-items: center;}
+    .date{font-weight:700; font-size: 14px;}
+    button{appearance:none; border:0; border-radius:10px; padding: 8px 12px; font-weight:700; cursor:pointer;}
+    .save{background:var(--accent); color:#fff;}
+    .reset{background:var(--danger); color:#fff;}
+    .status{font-size:12px; color:var(--muted); min-height:18px;}
+    .content{padding: 12px;}
+    .fridge-section{margin-bottom: 20px;}
+    
+    .custom-layout-grid { display: grid; grid-template-columns: repeat(4, 1fr); grid-auto-rows: min-content; gap: 6px; }
+    .fridge-name-box { grid-area: 3 / 1 / 5 / 2; display: flex; align-items: center; justify-content: center; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); font-weight: 700; font-size: 15px; color: var(--muted); text-align: center; }
+    .crate-box{ border:1px solid var(--line); border-radius:8px; background:var(--card); padding: 4px; }
+    .crate-box select{ width:100%; border:1px solid var(--line); border-radius:5px; padding: 5px 2px; font-family:inherit; font-size:12px; font-weight:500; background-color:var(--bg); margin-bottom: 3px; }
+    .half-section{display:flex; align-items:center; justify-content:center; gap:4px;}
+    .half-section label{font-size:11px; color:var(--muted); font-weight:500;}
+    .half-section input[type="checkbox"]{width:15px; height:15px; margin: 0;}
+    .vertical-fridge-title { font-size:16px; font-weight:700; margin:0 0 10px 0; padding-bottom:6px; border-bottom:2px solid var(--accent); }
+    .vertical-grid-container { display: grid; grid-template-columns: 1fr; gap: 6px; max-width: 150px; }
+
+    @media (min-width: 500px) {
+      .custom-layout-grid { gap: 10px; }
+      .crate-box { padding: 8px; }
+      .crate-box select { font-size: 14px; padding: 8px 5px; }
+      .half-section label { font-size: 13px; }
+      .fridge-name-box { font-size: 16px; }
+      .vertical-grid-container { max-width: 200px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <div class="header">
+        <div>
+          <h1>ફ્રિજ કેરેટ મેપ</h1>
+          <div class="status" id="status">લોડ થઈ રહ્યું છે...</div>
+        </div>
+        <div class="controls">
+          <div class="date" id="dateLabel">--</div>
+          <button class="save" id="saveBtn">SAVE</button>
+          <button class="reset" id="resetBtn">RESET</button>
+        </div>
+      </div>
+      <div class="content" id="content"></div>
+    </div>
+  </div>
+
+  <script type="module">
+    // CONFIG
+    const FIREBASE_CONFIG = { apiKey: "AIzaSyAvmNdKnVDqciXWN-fASQ77b9ovdamaM7k", authDomain: "amul-stock.firebaseapp.com", projectId: "amul-stock", storageBucket: "amul-stock.firebasestorage.app", messagingSenderId: "721564107787", appId: "1:721564107787:web:d2e305a47e0a8becae730e" };
+    const PRODUCTS = [ "ખાલી", "તાજા 150", "ગોલ્ડ 500", "તાજા 500", "T સ્પે ગીર", "A તાજા 500", "T સ્પે અમુલ", "છાસ ગીર", "છાસ 680", "છાસ 300", "FF 150", "દહીં 850", "દહીં 1 KG", "દહીં 5 KG", "ગોલ્ડ 6 લી" ];
+    const FRIDGES = { white_fridge: { name: "વ્હાઇટ ફ્રિજ", count: 14, layout: 'custom' }, blue_fridge: { name: "બ્લુ ફ્રિજ", count: 14, layout: 'custom' }, amul_fridge: { name: "અમુલ ફ્રિજ", count: 14, layout: 'custom' }, fourth_fridge: { name: "ચોથું ફ્રિજ", count: 4, layout: 'vertical' } };
+
+    // FIREBASE SETUP
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-app.js";
+    import { getAuth, onAuthStateChanged, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-auth.js";
+    import { getFirestore, doc, setDoc, updateDoc, onSnapshot, enableIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js";
+    const app = initializeApp(FIREBASE_CONFIG);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+    try { await enableIndexedDbPersistence(db); } catch(e) { console.warn('Persistence:', e.message); }
+
+    // DOM & SETUP
+    const $status = document.getElementById('status');
+    const $content = document.getElementById('content');
+    const dateKey = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' })).toISOString().slice(0, 10);
+    document.getElementById('dateLabel').textContent = `તારીખ: ${dateKey.split('-').reverse().join('-')}`;
+    const docRef = doc(db, 'fridge_crates', dateKey);
+
+    // UI BUILDER
+    function buildUI() {
+      $content.innerHTML = '';
+      const productOptions = PRODUCTS.map(p => `<option value="${p}">${p}</option>`).join('');
+      for (const [fridgeId, fridgeData] of Object.entries(FRIDGES)) {
+        const section = document.createElement('div'); section.className = 'fridge-section';
+        if (fridgeData.layout === 'custom') {
+            const grid = document.createElement('div'); grid.className = 'custom-layout-grid';
+            let crateIndex = 0;
+            for(let row=1; row<=4; row++){
+                for(let col=1; col<=4; col++){
+                    if((row === 3 || row === 4) && col === 1) continue;
+                    if(crateIndex >= fridgeData.count) break;
+                    const crateBox = createCrateBox(fridgeId, crateIndex, productOptions);
+                    crateBox.style.gridArea = `${row} / ${col} / span 1 / span 1`;
+                    grid.appendChild(crateBox); crateIndex++;
+                }
+            }
+            const nameBox = document.createElement('div'); nameBox.className = 'fridge-name-box';
+            nameBox.textContent = fridgeData.name; grid.appendChild(nameBox);
+            section.appendChild(grid);
+        } else {
+            const title = document.createElement('h2'); title.className = 'vertical-fridge-title';
+            title.textContent = fridgeData.name; section.appendChild(title);
+            const grid = document.createElement('div'); grid.className = 'vertical-grid-container';
+            for (let i = 0; i < fridgeData.count; i++) { grid.appendChild(createCrateBox(fridgeId, i, productOptions)); }
+            section.appendChild(grid);
+        }
+        $content.appendChild(section);
+      }
+    }
+    function createCrateBox(fridgeId, index, productOptions) {
+        const crateBox = document.createElement('div'); crateBox.className = 'crate-box';
+        crateBox.innerHTML = `<select data-fridge="${fridgeId}" data-index="${index}" data-type="product">${productOptions}</select><div class="half-section"><input type="checkbox" id="half_${fridgeId}_${index}" data-fridge="${fridgeId}" data-index="${index}" data-type="isHalf"><label for="half_${fridgeId}_${index}">અળધુ</label></div>`;
+        return crateBox;
+    }
+    
+    // DATA HANDLING & FIREBASE
+    let state = {};
+    const getInitialState = () => { const i = {}; for (const f in FRIDGES) { i[f] = Array(FRIDGES[f].count).fill({ product: 'ખાલી', isHalf: false }); } return i; };
+    let applyingRemote = false;
+
+    function applyStateToUI(sourceState) {
+      applyingRemote = true;
+      for (const [fridgeId, data] of Object.entries(sourceState)) {
+        if (!data) continue;
+        data.forEach((crate, index) => {
+          const productSelect = document.querySelector(`select[data-fridge="${fridgeId}"][data-index="${index}"]`);
+          const isHalfCheck = document.querySelector(`input[data-fridge="${fridgeId}"][data-index="${index}"]`);
+          if (productSelect) productSelect.value = crate.product || 'ખાલી';
+          if (isHalfCheck) isHalfCheck.checked = crate.isHalf || false;
+        });
+      }
+      applyingRemote = false;
+    }
+    
+    function setStatus(msg){ $status.textContent = msg; clearTimeout(setStatus._t); setStatus._t = setTimeout(()=>{$status.textContent=''}, 2500); }
+    
+    async function saveState() {
+      setStatus('સેવ થઈ રહ્યું છે...');
+      try {
+        await setDoc(docRef, { ...state, updatedAt: new Date() });
+        setStatus('સેવ થઈ ગયું ✅');
+      } catch (error) {
+        console.error("Save failed:", error);
+        setStatus('સેવ નિષ્ફળ ❌');
+      }
+    }
+
+    $content.addEventListener('change', (e) => {
+      if (applyingRemote || !(e.target.matches('select') || e.target.matches('input[type="checkbox"]'))) return;
+      
+      const { fridge, index, type } = e.target.dataset;
+      const value = (type === 'isHalf') ? e.target.checked : e.target.value;
+      
+      // અહીં, આપણે સીધા 'state' ઓબ્જેક્ટને અપડેટ કરીએ છીએ.
+      state[fridge][index][type] = value;
+      setStatus('ફેરફાર સેવ કરવા SAVE દબાવો');
+    });
+
+    document.getElementById('saveBtn').addEventListener('click', saveState);
+
+    document.getElementById('resetBtn').addEventListener('click', async () => {
+      if (!confirm('આજે માટે આખું લેઆઉટ સાફ કરવા RESET કરશો?')) return;
+      state = getInitialState();
+      setStatus('રીસેટ થઈ રહ્યું છે...');
+      await setDoc(docRef, { ...state, date: dateKey, createdAt: new Date() });
+      setStatus('રીસેટ થઈ ગયું ✅');
+    });
+    
+    // નવી અને સુધારેલી onAuthStateChanged() ફંક્શન
+    onAuthStateChanged(auth, async (user) => {
+      if (!user) {
+        try { await signInAnonymously(auth); } catch(e) { console.error("Sign-in failed", e); setStatus('ઓથેન્ટિકેશન નિષ્ફળ ❌'); }
+        return;
+      }
+      
+      buildUI();
+      setStatus('લોડ થઈ રહ્યું છે...');
+
+      onSnapshot(docRef, (docSnap) => {
+        if (!docSnap.exists()) {
+          state = getInitialState();
+          setDoc(docRef, { ...state, date: dateKey, createdAt: new Date() });
+          setStatus('નવો દિવસ ✅');
+          return;
+        }
+        
+        state = { ...getInitialState(), ...docSnap.data() };
+        applyStateToUI(state);
+        setStatus('રીયલટાઇમ જોડાયેલ ✅');
+      }, (error) => {
+        console.error("Snapshot error:", error);
+        setStatus('રીયલટાઇમ કનેક્શન તૂટ્યું ❌');
+      });
+    });
+  </script>
+</body>
+</html>
