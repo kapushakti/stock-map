@@ -85,9 +85,9 @@
     const FRIDGES = { white_fridge: { name: "વ્હાઇટ ફ્રિજ", count: 14, layout: 'custom' }, blue_fridge: { name: "બ્લુ ફ્રિજ", count: 14, layout: 'custom' }, amul_fridge: { name: "અમુલ ફ્રિજ", count: 14, layout: 'custom' }, fourth_fridge: { name: "ચોથું ફ્રિજ", count: 4, layout: 'vertical' } };
 
     // FIREBASE SETUP
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-app.js"; // SDK વર્ઝન બદલ્યું
-    import { getAuth, onAuthStateChanged, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-auth.js"; // SDK વર્ઝન બદલ્યું
-    import { getFirestore, doc, setDoc, updateDoc, onSnapshot, enableIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-firestore.js"; // SDK વર્ઝન બદલ્યું
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-app.js"; 
+    import { getAuth, onAuthStateChanged, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-auth.js"; 
+    import { getFirestore, doc, setDoc, updateDoc, onSnapshot, enableIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-firestore.js"; 
     
     const app = initializeApp(FIREBASE_CONFIG);
     const auth = getAuth(app);
