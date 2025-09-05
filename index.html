@@ -1,37 +1,69 @@
 <!DOCTYPE html>
 <html lang="gu">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Screen2 - Fridge Map</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Fridge Crate Map</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Gujarati:wght@500;700&display=swap" rel="stylesheet">
   <style>
-    body { font-family: Arial, sans-serif; padding: 20px; }
-    table { border-collapse: collapse; margin: 20px 0; }
-    td { border: 1px solid #444; width: 40px; height: 40px; text-align: center; cursor: pointer; }
-    .filled { background-color: lightgreen; }
-    button { margin: 5px; padding: 8px 12px; }
-    #status { margin-top: 10px; font-weight: bold; }
+    :root{ --bg:#f8fafc; --card:#ffffff; --muted:#475569; --accent:#22c55e; --danger:#ef4444; --text:#1e293b; --line:#e2e8f0; }
+    *{box-sizing:border-box}
+    body{ margin:0; font-family:"Noto Sans Gujarati", system-ui, sans-serif; background:var(--bg); color:var(--text); -webkit-tap-highlight-color: transparent; }
+    .wrap{max-width:980px; margin:0 auto; padding:8px;}
+    .card{background:var(--card); border:1px solid var(--line); border-radius:16px; box-shadow:0 4px 15px rgba(0,0,0,.07);}
+    .header{padding:12px; border-bottom:1px solid var(--line); display:flex; align-items:center; justify-content:space-between; gap:12px;}
+    h1{font-size:18px; margin:0; font-weight:700;}
+    .controls{display:flex; gap:8px; align-items: center;}
+    .date{font-weight:700; font-size: 14px;}
+    button{appearance:none; border:0; border-radius:10px; padding: 8px 12px; font-weight:700; cursor:pointer;}
+    .save{background:var(--accent); color:#fff;}
+    .reset{background:var(--danger); color:#fff;}
+    .status{font-size:12px; color:var(--muted); min-height:18px;}
+    .content{padding: 12px;}
+    .fridge-section{margin-bottom: 20px;}
+
+    .custom-layout-grid { display: grid; grid-template-columns: repeat(4, 1fr); grid-auto-rows: min-content; gap: 6px; }
+    .fridge-name-box { grid-area: 3 / 1 / 5 / 2; display: flex; align-items: center; justify-content: center; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); font-weight: 700; font-size: 15px; color: var(--muted); text-align: center; }
+    .crate-box{ border:1px solid var(--line); border-radius:8px; background:var(--card); padding: 4px; }
+    .crate-box select{ width:100%; border:1px solid var(--line); border-radius:5px; padding: 5px 2px; font-family:inherit; font-size:12px; font-weight:500; background-color:var(--bg); margin-bottom: 3px; }
+    .half-section{display:flex; align-items:center; justify-content:center; gap:4px;}
+    .half-section label{font-size:11px; color:var(--muted); font-weight:500;}
+    .half-section input[type="checkbox"]{width:15px; height:15px; margin: 0;}
+    .vertical-fridge-title { font-size:16px; font-weight:700; margin:0 0 10px 0; padding-bottom:6px; border-bottom:2px solid var(--accent); }
+    .vertical-grid-container { display: grid; grid-template-columns: 1fr; gap: 6px; max-width: 150px; }
+
+    @media (min-width: 500px) {
+      .custom-layout-grid { gap: 10px; }
+      .crate-box { padding: 8px; }
+      .crate-box select { font-size: 14px; padding: 8px 5px; }
+      .half-section label { font-size: 13px; }
+      .fridge-name-box { font-size: 16px; }
+      .vertical-grid-container { max-width: 200px; }
+    }
   </style>
 </head>
 <body>
-  <h2>ફ્રિજ મેપ</h2>
-  <table id="fridge"></table>
-  <div>
-    <button onclick="resetFridge()">ફ્રિજ ખાલી કરો</button>
+  <div class="wrap">
+    <div class="card">
+      <div class="header">
+        <div>
+          <h1>ફ્રિજ કેરેટ મેપ</h1>
+          <div class="status" id="status">લોડ થઈ રહ્યું છે...</div>
+        </div>
+        <div class="controls">
+          <div class="date" id="dateLabel">--</div>
+          <!-- Save બટન રાખ્યો નથી; Auto-save છે -->
+          <button class="reset" id="resetBtn">RESET</button>
+        </div>
+      </div>
+      <div class="content" id="content"></div>
+    </div>
   </div>
-  <p id="status"></p>
-
-  <!-- Firebase SDK -->
-  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js"></script>
 
   <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-    import { getAuth } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-    import { getFirestore, enableIndexedDbPersistence, doc, setDoc, getDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-
-    // ====== 1) Firebase Config ======
+    // ====== 1) CONFIG – Screen1 જેવા જ ======
     const FIREBASE_CONFIG = {
       apiKey: "AIzaSyAvmNdKnVDqciXWN-fASQ77b9ovdamaM7k",
       authDomain: "amul-stock.firebaseapp.com",
@@ -41,81 +73,201 @@
       appId: "1:721564107787:web:d2e305a47e0a8becae730e"
     };
 
-    // ====== 2) Initialize ======
+    const PRODUCTS = [ "ખાલી", "તાજા 150", "ગોલ્ડ 500", "તાજા 500", "T સ્પે ગીર", "A તાજા 500", "T સ્પે અમુલ", "છાસ ગીર", "છાસ 680", "છાસ 300", "FF 150", "દહીં 850", "દહીં 1 KG", "દહીં 5 KG", "ગોલ્ડ 6 લી" ];
+    const FRIDGES = {
+      white_fridge: { name: "વ્હાઇટ ફ્રિજ", count: 14, layout: 'custom' },
+      blue_fridge: { name: "બ્લુ ફ્રિજ", count: 14, layout: 'custom' },
+      amul_fridge: { name: "અમુલ ફ્રિજ", count: 14, layout: 'custom' },
+      fourth_fridge: { name: "ગ્લાસ ફ્રિજ", count: 4, layout: 'vertical' }
+    };
+
+    // ====== 2) Firebase v11 (CDN) ======
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-app.js";
+    import { getAuth, onAuthStateChanged, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-auth.js";
+    import { getFirestore, doc, setDoc, getDoc, onSnapshot, enableIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js";
+
     const app = initializeApp(FIREBASE_CONFIG);
     const auth = getAuth(app);
     const db = getFirestore(app);
     try { await enableIndexedDbPersistence(db); } catch(e) { console.warn('Persistence:', e.message); }
 
-    // ====== 3) Document Reference ======
-    const today = new Date();
-    const dateKey = today.toISOString().split('T')[0]; // YYYY-MM-DD
-    const docRef = doc(db, 'fridgeMaps', dateKey);
+    // ====== 3) Date/DOM ======
+    const pad2 = n => n.toString().padStart(2, '0');
+    const todayISO = () => {
+      const now = new Date();
+      const ist = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+      return `${ist.getFullYear()}-${pad2(ist.getMonth()+1)}-${pad2(ist.getDate())}`;
+    };
+    const humanDate = () => {
+      const now = new Date();
+      const ist = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+      return `${pad2(ist.getDate())}-${pad2(ist.getMonth()+1)}-${ist.getFullYear()}`;
+    };
+    const dateKey = todayISO();
+    document.getElementById('dateLabel').textContent = `તારીખ: ${humanDate()}`;
 
-    // ====== 4) UI Setup ======
-    const fridge = document.getElementById('fridge');
-    const rows = 5, cols = 5;
-    let map = Array(rows).fill().map(() => Array(cols).fill(0));
+    const $status  = document.getElementById('status');
+    const $content = document.getElementById('content');
 
-    function render() {
-      fridge.innerHTML = '';
-      map.forEach((row, r) => {
-        const tr = document.createElement('tr');
-        row.forEach((cell, c) => {
-          const td = document.createElement('td');
-          if(cell) td.classList.add('filled');
-          td.onclick = () => { 
-            map[r][c] = map[r][c] ? 0 : 1; 
-            render(); 
-            saveFridge(); // auto-save
-          };
-          tr.appendChild(td);
+    // ====== 3.5) Document Reference (તમારું collection નામ) ======
+    const docRef = doc(db, 'fridge_crates', dateKey);
+
+    // ====== 4) Helpers ======
+    function setStatus(msg){
+      $status.textContent = msg;
+      clearTimeout(setStatus._t);
+      setStatus._t = setTimeout(()=>{ $status.textContent = ''; }, 2500);
+    }
+
+    // initial state — દરેક crate માટે અલગ object બનાવો (fill ના બદલે)
+    const getInitialState = () => {
+      const obj = {};
+      for (const f in FRIDGES) {
+        obj[f] = Array.from({length: FRIDGES[f].count}, () => ({ product: 'ખાલી', isHalf: false }));
+      }
+      return obj;
+    };
+
+    let state = {};
+    let applyingRemote = false;
+    let debounceT;
+
+    // ====== 5) UI Builders ======
+    function createCrateBox(fridgeId, index, productOptions) {
+      const crateBox = document.createElement('div'); crateBox.className = 'crate-box';
+      crateBox.innerHTML = `
+        <select data-fridge="${fridgeId}" data-index="${index}" data-type="product">${productOptions}</select>
+        <div class="half-section">
+          <input type="checkbox" id="half_${fridgeId}_${index}" data-fridge="${fridgeId}" data-index="${index}" data-type="isHalf">
+          <label for="half_${fridgeId}_${index}">અળધુ</label>
+        </div>
+      `;
+      return crateBox;
+    }
+
+    function buildUI() {
+      $content.innerHTML = '';
+      const productOptions = PRODUCTS.map(p => `<option value="${p}">${p}</option>`).join('');
+      for (const [fridgeId, fridgeData] of Object.entries(FRIDGES)) {
+        const section = document.createElement('div'); section.className = 'fridge-section';
+
+        if (fridgeData.layout === 'custom') {
+          const grid = document.createElement('div'); grid.className = 'custom-layout-grid';
+          let crateIndex = 0;
+          for(let row=1; row<=4; row++){
+            for(let col=1; col<=4; col++){
+              if((row === 3 || row === 4) && col === 1) continue; // name box જગ્યા
+              if(crateIndex >= fridgeData.count) break;
+              const crateBox = createCrateBox(fridgeId, crateIndex, productOptions);
+              crateBox.style.gridArea = `${row} / ${col} / span 1 / span 1`;
+              grid.appendChild(crateBox); crateIndex++;
+            }
+          }
+          const nameBox = document.createElement('div'); nameBox.className = 'fridge-name-box';
+          nameBox.textContent = fridgeData.name; grid.appendChild(nameBox);
+          section.appendChild(grid);
+
+        } else {
+          const title = document.createElement('h2'); title.className = 'vertical-fridge-title';
+          title.textContent = fridgeData.name; section.appendChild(title);
+          const grid = document.createElement('div'); grid.className = 'vertical-grid-container';
+          for (let i = 0; i < fridgeData.count; i++) grid.appendChild(createCrateBox(fridgeId, i, productOptions));
+          section.appendChild(grid);
+        }
+        $content.appendChild(section);
+      }
+    }
+
+    function applyStateToUI(sourceState) {
+      applyingRemote = true;
+      for (const [fridgeId, data] of Object.entries(sourceState)) {
+        if (!data) continue;
+        data.forEach((crate, index) => {
+          const productSelect = document.querySelector(`select[data-fridge="${fridgeId}"][data-index="${index}"]`);
+          const isHalfCheck  = document.querySelector(`input[data-fridge="${fridgeId}"][data-index="${index}"]`);
+          if (productSelect) productSelect.value = crate.product || 'ખાલી';
+          if (isHalfCheck)  isHalfCheck.checked = !!crate.isHalf;
         });
-        fridge.appendChild(tr);
-      });
+      }
+      applyingRemote = false;
     }
-    render();
 
-    // ====== 5) Firestore Sync ======
-    async function saveFridge() {
+    // ====== 6) Auto-save on change (debounced) ======
+    async function saveState() {
+      setStatus('સાચવી રહ્યું છે… ⏳');
       try {
-        document.getElementById('status').innerText = "સાચવી રહ્યું છે... ⏳";
-        await setDoc(docRef, { map });
-        document.getElementById('status').innerText = "સાચવાઈ ગયું ✅";
-      } catch(e) {
-        console.error(e);
-        document.getElementById('status').innerText = "ભૂલ આવી ❌";
+        await setDoc(docRef, { ...state, updatedAt: new Date(), date: dateKey });
+        setStatus('સાચવાઈ ગયું ✅');
+      } catch (error) {
+        console.error(error);
+        setStatus(`સેવ નિષ્ફળ ❌: ${error.message}`);
       }
     }
 
-    async function resetFridge() {
-      map = Array(rows).fill().map(() => Array(cols).fill(0));
-      render();
-      await saveFridge();
-      document.getElementById('status').innerText = "ફ્રિજ ખાલી કરવામાં આવ્યું ✅";
-    }
+    $content.addEventListener('change', (e) => {
+      if (applyingRemote) return;
+      if (!(e.target.matches('select') || e.target.matches('input[type="checkbox"]'))) return;
 
-    async function loadFridge() {
-      document.getElementById('status').innerText = "લોડ થઈ રહ્યું છે... ⏳";
-      const snap = await getDoc(docRef);
-      if(snap.exists()) {
-        map = snap.data().map || map;
-        render();
-        document.getElementById('status').innerText = "લોડ પૂર્ણ ✅";
-      } else {
-        document.getElementById('status').innerText = "ડેટા મળ્યો નથી ⚠️";
-      }
-    }
+      const { fridge, index, type } = e.target.dataset;
+      const value = (type === 'isHalf') ? e.target.checked : e.target.value;
 
-    onSnapshot(docRef, (snap) => {
-      if(snap.exists()) {
-        map = snap.data().map || map;
-        render();
-        document.getElementById('status').innerText = "ડેટા આપમેળે અપડેટ થયું 🔄";
+      if (!state[fridge]) state[fridge] = [];
+      if (!state[fridge][index]) state[fridge][index] = { product: 'ખાલી', isHalf: false };
+      state[fridge][index][type] = value;
+
+      // Auto-save (debounce 250ms)
+      clearTimeout(debounceT);
+      debounceT = setTimeout(() => { saveState().catch(console.error); }, 250);
+    });
+
+    // ====== 7) Reset ======
+    document.getElementById('resetBtn').addEventListener('click', async () => {
+      if (!confirm('આજે માટે આખું લેઆઉટ સાફ કરવા RESET કરશો?')) return;
+      state = getInitialState();
+      applyStateToUI(state);
+      try {
+        await setDoc(docRef, { ...state, date: dateKey, createdAt: new Date() });
+        setStatus('રીસેટ થઈ ગયું ✅');
+      } catch (error) {
+        console.error(error);
+        setStatus(`રીસેટ નિષ્ફળ ❌: ${error.message}`);
       }
     });
 
-    loadFridge();
+    // ====== 8) Auth + Realtime ======
+    onAuthStateChanged(auth, async (user) => {
+      if (!user) {
+        try { await signInAnonymously(auth); }
+        catch(e) { console.error("Anonymous sign-in failed", e); setStatus(`ઓથેન્ટિકેશન નિષ્ફળ ❌: ${e.message}`); }
+        return;
+      }
+
+      buildUI();
+      setStatus('લોડ થઈ રહ્યું છે…');
+
+      const snap = await getDoc(docRef);
+      if (!snap.exists()) {
+        state = getInitialState();
+        await setDoc(docRef, { ...state, date: dateKey, createdAt: new Date() });
+        applyStateToUI(state);
+        setStatus('નવો દિવસ ✅');
+      } else {
+        // Firestore માંથી મળેલા state સાથે merge (જો future માં નવા fridge/crates ઉમેરો તો UI ન તૂટે)
+        state = { ...getInitialState(), ...snap.data() };
+        applyStateToUI(state);
+        setStatus('રીયલટાઇમ જોડાયેલ ✅');
+      }
+
+      onSnapshot(docRef, (docSnap) => {
+        if (!docSnap.exists()) return;
+        state = { ...getInitialState(), ...docSnap.data() };
+        applyStateToUI(state);
+        if (!applyingRemote) setStatus('ડેટા આપમેળે અપડેટ થયું 🔄');
+      }, (error) => {
+        console.error("Snapshot error:", error);
+        setStatus(`રીયલટાઇમ કનેક્શન તૂટ્યું ❌: ${error.message}`);
+      });
+    });
   </script>
 </body>
 </html>
