@@ -69,55 +69,48 @@
   </div>
 
   <script type="module">
-    // CONFIG
-    const FIREBASE_CONFIG = { 
-      apiKey: "AIzaSyC2yWUsU9j9qpf3amouAeP-5fGTY87WE2c", 
-      authDomain: "amulstock-11.firebaseapp.com", 
-      databaseURL: "https://amulstock-11-default-rtdb.firebaseio.com",
-      projectId: "amulstock-11", 
-      storageBucket: "amulstock-11.appspot.com", 
-      messagingSenderId: "809002917513", 
-      appId: "1:809002917513:web:1d2296a8ca9f5142fe3058", 
-      measurementId: "G-WTCML4CVV5" 
+    // ====== 1) CONFIG – તમારા પ્રોજેક્ટ માટે અપડેટ કર્યું છે ======
+    const FIREBASE_CONFIG = {
+      apiKey: "AIzaSyAvmNdKnVDqciXWN-fASQ77b9ovdamaM7k",
+      authDomain: "amul-stock.firebaseapp.com",
+      projectId: "amul-stock",
+      storageBucket: "amul-stock.firebasestorage.app",
+      messagingSenderId: "721564107787",
+      appId: "1:721564107787:web:d2e305a47e0a8becae730e"
     };
     
     const PRODUCTS = [ "ખાલી", "તાજા 150", "ગોલ્ડ 500", "તાજા 500", "T સ્પે ગીર", "A તાજા 500", "T સ્પે અમુલ", "છાસ ગીર", "છાસ 680", "છાસ 300", "FF 150", "દહીં 850", "દહીં 1 KG", "દહીં 5 KG", "ગોલ્ડ 6 લી" ];
-    const FRIDGES = { white_fridge: { name: "વ્હાઇટ ફ્રિજ", count: 14, layout: 'custom' }, blue_fridge: { name: "બ્લુ ફ્રિજ", count: 14, layout: 'custom' }, amul_fridge: { name: "અમુલ ફ્રિજ", count: 14, layout: 'custom' }, fourth_fridge: { name: "ચોથું ફ્રિજ", count: 4, layout: 'vertical' } };
+    const FRIDGES = { white_fridge: { name: "વ્હાઇટ ફ્રિજ", count: 14, layout: 'custom' }, blue_fridge: { name: "બ્લુ ફ્રિજ", count: 14, layout: 'custom' }, amul_fridge: { name: "અમુલ ફ્રિજ", count: 14, layout: 'custom' }, fourth_fridge: { name: "ગ્લાસ ફ્રિજ", count: 4, layout: 'vertical' } };
 
-    // FIREBASE SETUP
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-app.js"; 
-    import { getAuth, onAuthStateChanged, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-auth.js"; 
-    import { getFirestore, doc, setDoc, updateDoc, onSnapshot, enableIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-firestore.js"; 
+     // ====== 3) FIREBASE (Web v11+ Modular via CDN) ======
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-app.js";
+    import { getAuth, onAuthStateChanged, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-auth.js";
+    import { getFirestore, doc, setDoc, updateDoc, getDoc, onSnapshot, enableIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js";
     
     const app = initializeApp(FIREBASE_CONFIG);
     const auth = getAuth(app);
     const db = getFirestore(app);
-    
-    // IndexedDB Persistence
-    try { 
-      await enableIndexedDbPersistence(db); 
-      console.log('Firestore persistence enabled.');
-    } catch(e) { 
-      if (e.code === 'failed-precondition') {
-        // Multiple tabs open, persistence can only be enabled in one tab.
-        console.warn('Persistence failed: Multiple tabs open. IndexedDB persistence can only be enabled in one tab at a time.');
-      } else if (e.code === 'unimplemented') {
-        // The current browser does not support IndexedDB.
-        console.warn('Persistence failed: Browser does not support IndexedDB for offline persistence.');
-      } else {
-        console.error('Persistence failed:', e.message); 
-      }
-    }
 
-    // DOM & SETUP
+    try { await enableIndexedDbPersistence(db); } catch(e) { console.warn('Persistence:', e.message); }
+
+    // ====== 4) UTIL ======
+    const pad2 = n => n.toString().padStart(2, '0');
+    const todayISO = () => {
+      const now = new Date();
+      const ist = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+      return `${ist.getFullYear()}-${pad2(ist.getMonth()+1)}-${pad2(ist.getDate())}`;
+    };
+    const humanDate = () => {
+      const now = new Date();
+      const ist = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+      return `${pad2(ist.getDate())}-${pad2(ist.getMonth()+1)}-${ist.getFullYear()}`;
+    };
+
+    const dateKey = todayISO();
+    document.getElementById('dateLabel').textContent = `તારીખ: ${humanDate()}`;
+
+    const $tbody = document.getElementById('tbody');
     const $status = document.getElementById('status');
-    const $content = document.getElementById('content');
-    // Asia/Kolkata સમય મુજબ આજની તારીખ મેળવો
-    const today = new Date();
-    const dateKey = today.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }).replace(/\//g, '-'); // YYYY-MM-DD
-    
-    document.getElementById('dateLabel').textContent = `તારીખ: ${dateKey.split('-').reverse().join('-')}`;
-    const docRef = doc(db, 'fridge_crates', dateKey);
 
     // UI BUILDER
     function buildUI() {
