@@ -1,108 +1,121 @@
 <!DOCTYPE html>
 <html lang="gu">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Fridge Crates</title>
+  <meta charset="UTF-8">
+  <title>ફ્રિજ ક્રેટ્સ ડેટા</title>
   <style>
-    body { font-family: Arial, sans-serif; padding: 20px; }
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+    }
     h2 { color: #333; }
     label { display: block; margin-top: 10px; }
-    input { padding: 6px; margin-top: 4px; width: 100%; }
-    button { margin-top: 12px; padding: 8px 16px; }
-    #status { margin-top: 15px; font-weight: bold; color: green; }
+    input, select, button {
+      margin-top: 5px;
+      padding: 8px;
+      width: 100%;
+      max-width: 300px;
+    }
+    .status {
+      margin-top: 15px;
+      font-weight: bold;
+    }
+    .success { color: green; }
+    .error { color: red; }
   </style>
 </head>
 <body>
   <h2>ફ્રિજ ક્રેટ્સ ડેટા</h2>
-
   <label>તારીખ:</label>
-  <input type="date" id="dateInput"/>
+  <input type="date" id="dateInput">
 
   <label>ટોટલ ક્રેટ્સ:</label>
-  <input type="number" id="totalInput"/>
+  <input type="number" id="totalCrates" placeholder="ટોટલ ક્રેટ્સ">
 
-  <label>વેચાયેલા ક્રેટ્સ:</label>
-  <input type="number" id="soldInput"/>
+  <label>વેચાયેલ ક્રેટ્સ:</label>
+  <input type="number" id="soldCrates" placeholder="વેચાયેલ ક્રેટ્સ">
 
   <button onclick="saveData()">સેવ કરો</button>
 
-  <div id="status">લોડ થઈ રહ્યું છે...</div>
+  <div id="status" class="status"></div>
 
-  <!-- Firebase v8 SDK -->
-  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+  <script type="module">
+    // Import Firebase SDK
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
+    import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
 
-  <script>
-    // 🔑 તમારું Firebase Config (Screen1 જેવું જ રાખો)
-    var firebaseConfig = {
-      apiKey: "YOUR_API_KEY",
-      authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-      projectId: "YOUR_PROJECT_ID",
-      storageBucket: "YOUR_PROJECT_ID.appspot.com",
-      messagingSenderId: "YOUR_SENDER_ID",
-      appId: "YOUR_APP_ID"
+    // ✅ સાચું Firebase config
+    const firebaseConfig = {
+      apiKey: "AIzaSyAvmNdKnVDqciXWN-fASQ77b9ovdamaM7k",
+      authDomain: "amul-stock.firebaseapp.com",
+      projectId: "amul-stock",
+      storageBucket: "amul-stock.appspot.com",
+      messagingSenderId: "721564107787",
+      appId: "1:721564107787:web:d2e305a47e0a8becae730e"
     };
-    firebase.initializeApp(firebaseConfig);
 
-    var db = firebase.firestore();
-    var statusEl = document.getElementById("status");
+    // Initialize Firebase
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
 
-    // Anonymous login
-    firebase.auth().signInAnonymously()
-      .then(() => {
-        statusEl.textContent = "રિયલ ટાઈમ જોડાયેલ✓";
-      })
-      .catch((error) => {
-        statusEl.textContent = "એરર: " + error.message;
-      });
+    const statusEl = document.getElementById("status");
 
-    function saveData() {
-      var dateKey = document.getElementById("dateInput").value;
-      var total = parseInt(document.getElementById("totalInput").value) || 0;
-      var sold = parseInt(document.getElementById("soldInput").value) || 0;
+    // 🔹 Save data to Firestore
+    async function saveData() {
+      const date = document.getElementById("dateInput").value;
+      const total = document.getElementById("totalCrates").value;
+      const sold = document.getElementById("soldCrates").value;
 
-      if (!dateKey) {
-        statusEl.textContent = "કૃપા કરીને તારીખ નાખો.";
+      if (!date) {
+        statusEl.textContent = "કૃપા કરીને તારીખ નાખો!";
+        statusEl.className = "status error";
         return;
       }
 
-      var ref = db.collection("fridge_crates").doc(dateKey);
+      try {
+        await setDoc(doc(db, "fridge_crates", date), {
+          totalCrates: Number(total),
+          soldCrates: Number(sold),
+          updatedAt: new Date().toISOString()
+        });
 
-      ref.set({
-        total: total,
-        sold: sold,
-        updated: firebase.firestore.FieldValue.serverTimestamp()
-      })
-      .then(() => {
-        statusEl.textContent = "સેવ થઈ ગયું✓";
-      })
-      .catch((error) => {
-        statusEl.textContent = "સેવ કરતી વખતે ભૂલ: " + error.message;
-      });
+        statusEl.textContent = "ડેટા સફળતાપૂર્વક સેવ થયો ✅";
+        statusEl.className = "status success";
+      } catch (e) {
+        console.error("Save error:", e);
+        statusEl.textContent = "એરર: " + e.message;
+        statusEl.className = "status error";
+      }
     }
 
-    // Auto-load data when date selected
-    document.getElementById("dateInput").addEventListener("change", function() {
-      var dateKey = this.value;
-      var ref = db.collection("fridge_crates").doc(dateKey);
+    // 🔹 Load data if exists
+    async function loadData() {
+      const today = new Date().toISOString().split("T")[0];
+      document.getElementById("dateInput").value = today;
 
-      ref.onSnapshot((doc) => {
-        if (doc.exists) {
-          var data = doc.data();
-          document.getElementById("totalInput").value = data.total || 0;
-          document.getElementById("soldInput").value = data.sold || 0;
-          statusEl.textContent = "ડેટા લોડ થયું✓";
+      try {
+        const docRef = doc(db, "fridge_crates", today);
+        const snap = await getDoc(docRef);
+
+        if (snap.exists()) {
+          const data = snap.data();
+          document.getElementById("totalCrates").value = data.totalCrates || "";
+          document.getElementById("soldCrates").value = data.soldCrates || "";
+          statusEl.textContent = "રિયલ ટાઈમ જોડાયેલ √";
+          statusEl.className = "status success";
         } else {
-          document.getElementById("totalInput").value = "";
-          document.getElementById("soldInput").value = "";
-          statusEl.textContent = "નવો રેકોર્ડ બનાવી શકો.";
+          statusEl.textContent = "કોઈ ડેટા મળ્યો નથી.";
+          statusEl.className = "status error";
         }
-      }, (error) => {
-        statusEl.textContent = "લોડ કરતી વખતે ભૂલ: " + error.message;
-      });
-    });
+      } catch (e) {
+        console.error("Load error:", e);
+        statusEl.textContent = "એરર: " + e.message;
+        statusEl.className = "status error";
+      }
+    }
+
+    // Auto-load data on page load
+    loadData();
   </script>
 </body>
 </html>
