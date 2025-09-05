@@ -1,77 +1,108 @@
 <!DOCTYPE html>
 <html lang="gu">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Fridge Crates</title>
   <style>
-    body { font-family: Arial, sans-serif; padding: 10px; }
-    #status { margin-bottom: 10px; color: green; font-weight: bold; }
-    .error { color: red; }
+    body { font-family: Arial, sans-serif; padding: 20px; }
+    h2 { color: #333; }
+    label { display: block; margin-top: 10px; }
+    input { padding: 6px; margin-top: 4px; width: 100%; }
+    button { margin-top: 12px; padding: 8px 16px; }
+    #status { margin-top: 15px; font-weight: bold; color: green; }
   </style>
 </head>
 <body>
-  <h2>Fridge Crates</h2>
+  <h2>ફ્રિજ ક્રેટ્સ ડેટા</h2>
+
+  <label>તારીખ:</label>
+  <input type="date" id="dateInput"/>
+
+  <label>ટોટલ ક્રેટ્સ:</label>
+  <input type="number" id="totalInput"/>
+
+  <label>વેચાયેલા ક્રેટ્સ:</label>
+  <input type="number" id="soldInput"/>
+
+  <button onclick="saveData()">સેવ કરો</button>
+
   <div id="status">લોડ થઈ રહ્યું છે...</div>
-  <div id="data"></div>
 
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.2/firebase-app.js";
-    import { getFirestore, doc, getDoc, onSnapshot, enableIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/10.7.2/firebase-firestore.js";
+  <!-- Firebase v8 SDK -->
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
 
-    // ✅ Screen1 જેવો config (storageBucket સુધારેલ)
-    const firebaseConfig = {
-      apiKey: "AIzaSyDdR7zPH_h7-jacph2I2V8z6A1-Z2RuC",
-      authDomain: "amul-stock.firebaseapp.com",
-      projectId: "amul-stock",
-      storageBucket: "amul-stock.appspot.com",
-      messagingSenderId: "585928243926",
-      appId: "1:585928243926:web:d9bc66f9bfa1d37dfd1067"
+  <script>
+    // 🔑 તમારું Firebase Config (Screen1 જેવું જ રાખો)
+    var firebaseConfig = {
+      apiKey: "YOUR_API_KEY",
+      authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+      projectId: "YOUR_PROJECT_ID",
+      storageBucket: "YOUR_PROJECT_ID.appspot.com",
+      messagingSenderId: "YOUR_SENDER_ID",
+      appId: "YOUR_APP_ID"
     };
+    firebase.initializeApp(firebaseConfig);
 
-    const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
+    var db = firebase.firestore();
+    var statusEl = document.getElementById("status");
 
-    // Offline persistence (safe way)
-    enableIndexedDbPersistence(db).catch((err) => {
-      console.warn("Persistence error:", err.message);
-    });
+    // Anonymous login
+    firebase.auth().signInAnonymously()
+      .then(() => {
+        statusEl.textContent = "રિયલ ટાઈમ જોડાયેલ✓";
+      })
+      .catch((error) => {
+        statusEl.textContent = "એરર: " + error.message;
+      });
 
-    const statusEl = document.getElementById("status");
-    const dataEl = document.getElementById("data");
+    function saveData() {
+      var dateKey = document.getElementById("dateInput").value;
+      var total = parseInt(document.getElementById("totalInput").value) || 0;
+      var sold = parseInt(document.getElementById("soldInput").value) || 0;
 
-    async function loadData() {
-      try {
-        const today = new Date();
-        const dateKey = today.toISOString().split("T")[0]; // e.g. 2025-09-05
-        const docRef = doc(db, "fridge_crates", dateKey);
-
-        statusEl.textContent = "લોડ થઈ રહ્યું છે...";
-
-        // Real-time listener
-        onSnapshot(docRef, (docSnap) => {
-          if (docSnap.exists()) {
-            const data = docSnap.data();
-            statusEl.textContent = "રિયલ ટાઈમ જોડાયેલ √";
-            dataEl.innerHTML = "<pre>" + JSON.stringify(data, null, 2) + "</pre>";
-          } else {
-            statusEl.textContent = "ડેટા મળ્યો નથી ❌";
-            dataEl.innerHTML = "";
-          }
-        }, (error) => {
-          console.error("Snapshot error:", error);
-          statusEl.textContent = "એરર: " + error.message;
-          statusEl.classList.add("error");
-        });
-
-      } catch (e) {
-        console.error("Load error:", e);
-        statusEl.textContent = "એરર: " + e.message;
-        statusEl.classList.add("error");
+      if (!dateKey) {
+        statusEl.textContent = "કૃપા કરીને તારીખ નાખો.";
+        return;
       }
+
+      var ref = db.collection("fridge_crates").doc(dateKey);
+
+      ref.set({
+        total: total,
+        sold: sold,
+        updated: firebase.firestore.FieldValue.serverTimestamp()
+      })
+      .then(() => {
+        statusEl.textContent = "સેવ થઈ ગયું✓";
+      })
+      .catch((error) => {
+        statusEl.textContent = "સેવ કરતી વખતે ભૂલ: " + error.message;
+      });
     }
 
-    loadData();
+    // Auto-load data when date selected
+    document.getElementById("dateInput").addEventListener("change", function() {
+      var dateKey = this.value;
+      var ref = db.collection("fridge_crates").doc(dateKey);
+
+      ref.onSnapshot((doc) => {
+        if (doc.exists) {
+          var data = doc.data();
+          document.getElementById("totalInput").value = data.total || 0;
+          document.getElementById("soldInput").value = data.sold || 0;
+          statusEl.textContent = "ડેટા લોડ થયું✓";
+        } else {
+          document.getElementById("totalInput").value = "";
+          document.getElementById("soldInput").value = "";
+          statusEl.textContent = "નવો રેકોર્ડ બનાવી શકો.";
+        }
+      }, (error) => {
+        statusEl.textContent = "લોડ કરતી વખતે ભૂલ: " + error.message;
+      });
+    });
   </script>
 </body>
 </html>
